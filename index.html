@@ -670,6 +670,26 @@
             <div id="dashboard" class="tab-content">
                 <h2 style="margin-bottom: 20px; color: #333;">Financial Summary</h2>
 
+                <div class="form-group" style="max-width: 300px; margin-bottom: 20px;">
+                    <label for="province">Your Province (for tax calculations)</label>
+                    <select id="province" onchange="updateTaxCalculations()">
+                        <option value="">Select Your Province</option>
+                        <option value="ON">Ontario (ON)</option>
+                        <option value="QC">Quebec (QC)</option>
+                        <option value="BC">British Columbia (BC)</option>
+                        <option value="AB">Alberta (AB)</option>
+                        <option value="MB">Manitoba (MB)</option>
+                        <option value="SK">Saskatchewan (SK)</option>
+                        <option value="NS">Nova Scotia (NS)</option>
+                        <option value="NB">New Brunswick (NB)</option>
+                        <option value="PE">Prince Edward Island (PE)</option>
+                        <option value="NL">Newfoundland & Labrador (NL)</option>
+                        <option value="NT">Northwest Territories (NT)</option>
+                        <option value="NU">Nunavut (NU)</option>
+                        <option value="YT">Yukon (YT)</option>
+                    </select>
+                </div>
+
                 <div class="summary-grid">
                     <div class="summary-card">
                         <h3>Total Savings</h3>
@@ -729,14 +749,35 @@
                     </div>
                 </div>
 
+                <div class="chart-container" style="margin-top: 30px;">
+                    <div class="chart-title">Tax Savings Calculator</div>
+                    <div style="font-size: 13px; color: #666; line-height: 1.8;">
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #333;">RRSP Tax Deduction</strong><br>
+                            Annual Contribution: <span id="rrspContrib">$0.00</span><br>
+                            Your Marginal Tax Rate: <span id="marginalRate">-</span><br>
+                            <strong style="color: #667eea;">Estimated Tax Savings: <span id="rrspTaxSavings">$0.00</span></strong>
+                        </div>
+                        <div style="border-top: 1px solid #ddd; padding-top: 15px;">
+                            <strong style="color: #333;">FHSA Tax Deduction (First-Time Buyers)</strong><br>
+                            Annual Contribution: <span id="fhsaContrib">$0.00</span><br>
+                            Your Marginal Tax Rate: <span id="marginalRate2">-</span><br>
+                            <strong style="color: #667eea;">Estimated Tax Savings: <span id="fhsaTaxSavings">$0.00</span></strong>
+                        </div>
+                        <div style="border-top: 1px solid #ddd; padding-top: 15px;">
+                            <strong style="color: #333;">Combined Tax Benefit</strong><br>
+                            <strong style="color: #28a745; font-size: 14px;">Total Tax Savings: <span id="totalTaxSavings">$0.00</span></strong>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="info-box" style="margin-top: 30px;">
-                    <strong>💡 Spending Insights:</strong><br>
-                    To spend less and save more efficiently:<br>
-                    • Track every expense to identify spending patterns<br>
-                    • Set category budgets and monitor monthly progress<br>
-                    • Look for recurring expenses you can eliminate<br>
-                    • Automate savings contributions to prioritize them<br>
-                    • Review the Dashboard monthly to see your savings rate
+                    <strong>💡 Tax Optimization Tips:</strong><br>
+                    • RRSP contributions reduce your taxable income and give immediate tax refunds<br>
+                    • FHSA is perfect for first-time home buyers - tax-deductible and tax-free growth<br>
+                    • TFSA has no tax deduction but offers tax-free growth and withdrawals<br>
+                    • Maximize RRSP during high-income years for bigger tax savings<br>
+                    • Use tax refunds to accelerate more savings!
                 </div>
             </div>
         </div>
@@ -763,6 +804,26 @@
         let savingsData = [];
         let expensesData = [];
         let dataListener = null;
+
+        // Tax rates by province (2025) - combined federal + provincial marginal tax rates
+        const taxRatesByProvince = {
+            'ON': { name: 'Ontario', rates: [20.05, 24.15, 29.65, 35.39, 39.41, 43.41, 45.73] },
+            'QC': { name: 'Quebec', rates: [20.06, 27.76, 37.26, 45.75, 49.97, 53.53, 55.48] },
+            'BC': { name: 'British Columbia', rates: [20.06, 22.70, 32.79, 37.45, 43.70, 47.70, 50.53] },
+            'AB': { name: 'Alberta', rates: [25.00, 30.00, 36.00, 41.00, 48.00, 53.00, 58.00] },
+            'MB': { name: 'Manitoba', rates: [20.06, 26.16, 30.68, 36.67, 42.67, 48.00, 50.00] },
+            'SK': { name: 'Saskatchewan', rates: [20.06, 26.16, 30.68, 36.00, 41.00, 44.00, 48.00] },
+            'NS': { name: 'Nova Scotia', rates: [20.06, 24.15, 34.16, 40.29, 45.34, 50.34, 54.34] },
+            'NB': { name: 'New Brunswick', rates: [20.00, 26.10, 34.10, 40.19, 45.19, 50.19, 52.19] },
+            'PE': { name: 'Prince Edward Island', rates: [20.05, 29.15, 34.16, 40.29, 45.34, 50.34, 52.34] },
+            'NL': { name: 'Newfoundland & Labrador', rates: [20.06, 29.16, 34.16, 40.29, 45.34, 50.34, 57.34] },
+            'NT': { name: 'Northwest Territories', rates: [20.06, 26.76, 35.19, 43.05, 49.33, 50.92, 53.00] },
+            'NU': { name: 'Nunavut', rates: [15.00, 25.00, 35.00, 45.00, 50.00, 55.00, 60.00] },
+            'YT': { name: 'Yukon', rates: [20.06, 25.54, 33.70, 40.94, 46.33, 49.32, 50.97] }
+        };
+
+        let userProvince = null;
+        let userMarginalRate = 0;
 
         // Monitor auth state
         auth.onAuthStateChanged(function(user) {
@@ -1166,8 +1227,287 @@
             }
         }
 
+        function initializeDates() {
+            const today = new Date().toISOString().split('T')[0];
+            if (document.getElementById('savingsDate')) {
+                document.getElementById('savingsDate').value = today;
+            }
+            if (document.getElementById('expenseDate')) {
+                document.getElementById('expenseDate').value = today;
+            }
+        }
+
+        function switchTab(e, tabName) {
+            e.preventDefault();
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(tabName).classList.add('active');
+            e.target.classList.add('active');
+            updateAllDisplays();
+        }
+
+        function addSavings(event) {
+            event.preventDefault();
+
+            const saving = {
+                type: document.getElementById('savingsType').value,
+                amount: parseFloat(document.getElementById('savingsAmount').value),
+                date: document.getElementById('savingsDate').value,
+                description: document.getElementById('savingsDescription').value,
+                id: Date.now()
+            };
+
+            savingsData.push(saving);
+            saveUserData();
+
+            event.target.reset();
+            initializeDates();
+            updateAllDisplays();
+        }
+
+        function addExpense(event) {
+            event.preventDefault();
+
+            const expense = {
+                category: document.getElementById('expenseCategory').value,
+                amount: parseFloat(document.getElementById('expenseAmount').value),
+                date: document.getElementById('expenseDate').value,
+                description: document.getElementById('expenseDescription').value,
+                id: Date.now()
+            };
+
+            expensesData.push(expense);
+            saveUserData();
+
+            event.target.reset();
+            initializeDates();
+            updateAllDisplays();
+        }
+
+        function deleteSaving(id) {
+            savingsData = savingsData.filter(s => s.id !== id);
+            saveUserData();
+            updateAllDisplays();
+        }
+
+        function deleteExpense(id) {
+            expensesData = expensesData.filter(e => e.id !== id);
+            saveUserData();
+            updateAllDisplays();
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-CA', {
+                style: 'currency',
+                currency: 'CAD',
+                minimumFractionDigits: 2
+            }).format(value);
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-CA', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function updateSavingsSummary() {
+            const currentYear = new Date().getFullYear().toString();
+            
+            const rrsp = savingsData.filter(s => s.type === 'RRSP').reduce((sum, s) => sum + s.amount, 0);
+            const fhsa = savingsData.filter(s => s.type === 'FHSA').reduce((sum, s) => sum + s.amount, 0);
+            const tfsa = savingsData.filter(s => s.type === 'TFSA').reduce((sum, s) => sum + s.amount, 0);
+            const dpsp = savingsData.filter(s => s.type === 'DPSP').reduce((sum, s) => sum + s.amount, 0);
+            
+            const rrspYear = savingsData.filter(s => s.type === 'RRSP' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+            const fhsaYear = savingsData.filter(s => s.type === 'FHSA' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+            const tfsaYear = savingsData.filter(s => s.type === 'TFSA' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+            const dpspYear = savingsData.filter(s => s.type === 'DPSP' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+
+            const total = rrsp + fhsa + tfsa + dpsp;
+            const totalYear = rrspYear + fhsaYear + tfsaYear + dpspYear;
+
+            document.getElementById('rrspTotal').textContent = formatCurrency(rrsp);
+            document.getElementById('fhsaTotal').textContent = formatCurrency(fhsa);
+            document.getElementById('tfsaTotal').textContent = formatCurrency(tfsa);
+            document.getElementById('dpspTotal').textContent = formatCurrency(dpsp);
+            document.getElementById('grandTotal').textContent = formatCurrency(total);
+
+            document.getElementById('rrspYear').textContent = `2025: ${formatCurrency(rrspYear)}`;
+            document.getElementById('fhsaYear').textContent = `2025: ${formatCurrency(fhsaYear)}`;
+            document.getElementById('tfsaYear').textContent = `2025: ${formatCurrency(tfsaYear)}`;
+            document.getElementById('dpspYear').textContent = `2025: ${formatCurrency(dpspYear)}`;
+            document.getElementById('grandYear').textContent = `2025: ${formatCurrency(totalYear)}`;
+
+            const sortedSavings = [...savingsData].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const savingsList = document.getElementById('savingsList');
+            
+            if (sortedSavings.length === 0) {
+                savingsList.innerHTML = '<div class="empty-state"><p>No savings contributions yet. Add your first contribution above!</p></div>';
+            } else {
+                savingsList.innerHTML = sortedSavings.map(s => `
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <h4>${s.type}</h4>
+                            <p>${formatDate(s.date)}${s.description ? ' • ' + s.description : ''}</p>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div class="transaction-amount">+${formatCurrency(s.amount)}</div>
+                            <button type="button" class="delete-btn" onclick="deleteSaving(${s.id})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            return { rrsp, fhsa, tfsa, dpsp, total, rrspYear, fhsaYear, tfsaYear, dpspYear, totalYear };
+        }
+
+        function updateSpendingSummary() {
+            const currentYear = new Date().getFullYear().toString();
+            const currentMonth = new Date().toISOString().substring(0, 7);
+
+            const total = expensesData.reduce((sum, e) => sum + e.amount, 0);
+            const totalYear = expensesData.filter(e => e.date.startsWith(currentYear)).reduce((sum, e) => sum + e.amount, 0);
+            const monthlyTotal = expensesData.filter(e => e.date.startsWith(currentMonth)).reduce((sum, e) => sum + e.amount, 0);
+            
+            const monthDate = new Date(currentMonth + '-01');
+            const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+            const daysElapsed = new Date().getDate();
+            const monthlyAvg = (monthlyTotal / daysElapsed) * daysInMonth;
+
+            document.getElementById('totalSpending').textContent = formatCurrency(total);
+            document.getElementById('spendingYear').textContent = `2025: ${formatCurrency(totalYear)}`;
+            document.getElementById('monthlyAvg').textContent = formatCurrency(monthlyAvg);
+
+            const categoryTotals = {};
+            expensesData.forEach(e => {
+                categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
+            });
+
+            const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+            
+            if (sortedCategories.length > 0) {
+                const [largestName, largestAmount] = sortedCategories[0];
+                document.getElementById('largestCat').textContent = largestName;
+                document.getElementById('largestAmount').textContent = formatCurrency(largestAmount);
+            }
+
+            const chartHtml = sortedCategories.map(([category, amount]) => {
+                const percentage = total > 0 ? ((amount / total) * 100).toFixed(1) : 0;
+                return `
+                    <div class="category-bar">
+                        <div class="category-name">
+                            <span>${category}</span>
+                            <span>${percentage}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('categoryChart').innerHTML = chartHtml || '<div class="empty-state"><p>No spending data yet.</p></div>';
+
+            const sortedExpenses = [...expensesData].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const expensesList = document.getElementById('expensesList');
+            
+            if (sortedExpenses.length === 0) {
+                expensesList.innerHTML = '<div class="empty-state"><p>No expenses tracked yet. Start tracking your spending!</p></div>';
+            } else {
+                expensesList.innerHTML = sortedExpenses.map(e => `
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <h4>${e.category}</h4>
+                            <p>${formatDate(e.date)}${e.description ? ' • ' + e.description : ''}</p>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div class="transaction-amount expense">-${formatCurrency(e.amount)}</div>
+                            <button type="button" class="delete-btn" onclick="deleteExpense(${e.id})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            return { total, totalYear, monthlyAvg };
+        }
+
+        function updateDashboard() {
+            const savingsInfo = updateSavingsSummary();
+            const spendingInfo = updateSpendingSummary();
+
+            const netPosition = savingsInfo.totalYear - spendingInfo.totalYear;
+            const savingsRate = (savingsInfo.totalYear + spendingInfo.totalYear) > 0 
+                ? ((savingsInfo.totalYear / (savingsInfo.totalYear + spendingInfo.totalYear)) * 100).toFixed(1)
+                : 0;
+
+            document.getElementById('dashSavings').textContent = formatCurrency(savingsInfo.totalYear);
+            document.getElementById('dashSpending').textContent = formatCurrency(spendingInfo.totalYear);
+            document.getElementById('dashNet').textContent = formatCurrency(netPosition);
+            document.getElementById('dashRate').textContent = savingsRate + '%';
+
+            const total = savingsInfo.total;
+            if (total > 0) {
+                const rrspPct = ((savingsInfo.rrsp / total) * 100).toFixed(1);
+                const fhsaPct = ((savingsInfo.fhsa / total) * 100).toFixed(1);
+                const tfsaPct = ((savingsInfo.tfsa / total) * 100).toFixed(1);
+                const dpspPct = ((savingsInfo.dpsp / total) * 100).toFixed(1);
+
+                document.getElementById('rrspBar').style.width = rrspPct + '%';
+                document.getElementById('fhsaBar').style.width = fhsaPct + '%';
+                document.getElementById('tfsaBar').style.width = tfsaPct + '%';
+                document.getElementById('dpspBar').style.width = dpspPct + '%';
+
+                document.getElementById('rrspPct').textContent = rrspPct + '%';
+                document.getElementById('fhsaPct').textContent = fhsaPct + '%';
+                document.getElementById('tfsaPct').textContent = tfsaPct + '%';
+                document.getElementById('dpspPct').textContent = dpspPct + '%';
+            }
+        }
+
         function updateAllDisplays() {
             updateDashboard();
+            updateTaxCalculations();
+        }
+
+        function updateTaxCalculations() {
+            const provinceSelect = document.getElementById('province');
+            userProvince = provinceSelect.value;
+
+            if (!userProvince) {
+                document.getElementById('marginalRate').textContent = '-';
+                document.getElementById('marginalRate2').textContent = '-';
+                document.getElementById('rrspTaxSavings').textContent = '$0.00';
+                document.getElementById('fhsaTaxSavings').textContent = '$0.00';
+                document.getElementById('totalTaxSavings').textContent = '$0.00';
+                document.getElementById('rrspContrib').textContent = '$0.00';
+                document.getElementById('fhsaContrib').textContent = '$0.00';
+                return;
+            }
+
+            const currentYear = new Date().getFullYear().toString();
+            const rrspYear = savingsData.filter(s => s.type === 'RRSP' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+            const fhsaYear = savingsData.filter(s => s.type === 'FHSA' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+
+            userMarginalRate = taxRatesByProvince[userProvince].rates[3] / 100;
+
+            const rrspTaxSavings = rrspYear * userMarginalRate;
+            const fhsaTaxSavings = fhsaYear * userMarginalRate;
+            const totalTaxSavings = rrspTaxSavings + fhsaTaxSavings;
+
+            document.getElementById('rrspContrib').textContent = formatCurrency(rrspYear);
+            document.getElementById('fhsaContrib').textContent = formatCurrency(fhsaYear);
+            document.getElementById('marginalRate').textContent = (userMarginalRate * 100).toFixed(2) + '%';
+            document.getElementById('marginalRate2').textContent = (userMarginalRate * 100).toFixed(2) + '%';
+            document.getElementById('rrspTaxSavings').textContent = formatCurrency(rrspTaxSavings);
+            document.getElementById('fhsaTaxSavings').textContent = formatCurrency(fhsaTaxSavings);
+            document.getElementById('totalTaxSavings').textContent = formatCurrency(totalTaxSavings);
         }
     </script>
 </body>
