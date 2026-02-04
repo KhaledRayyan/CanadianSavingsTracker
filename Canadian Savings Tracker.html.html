@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canadian Savings Tracker</title>
+    <!-- Firebase CDN (Compat version - easier for single file) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tab-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .tab-button.active:hover {
+            background: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        input[type="date"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .summary-card .amount {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .transactions-list {
+            margin-top: 30px;
+        }
+
+        .transactions-list h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .transaction-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .transaction-info h4 {
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .transaction-info p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .transaction-amount {
+            font-weight: bold;
+            font-size: 16px;
+            color: #667eea;
+        }
+
+        .transaction-amount.expense {
+            color: #e74c3c;
+        }
+
+        .delete-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .delete-btn:hover {
+            background: #c0392b;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        .chart-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 12px;
+        }
+
+        .chart-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .category-bar {
+            margin-bottom: 15px;
+        }
+
+        .category-name {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        .progress-bar {
+            background: #e0e0e0;
+            border-radius: 4px;
+            height: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #1565c0;
+            line-height: 1.6;
+        }
+
+        .yearly-total {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .auth-box {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .auth-box h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: #333;
+            text-align: center;
+        }
+
+        .auth-box p {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .auth-form h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .auth-toggle {
+            text-align: center;
+            font-size: 13px;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .auth-toggle a {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header-content {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3c3;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+            }
+
+            .header-content {
+                min-width: auto;
+            }
+
+            .user-menu {
+                width: 100%;
+                justify-content: center;
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .summary-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Auth Screen -->
+        <div id="authScreen" class="auth-container">
+            <div class="auth-box">
+                <h1>💰 Canadian Savings Tracker</h1>
+                <p>Track your RRSP, FHSA, TFSA, DPSP & Spending</p>
+                
+                <div id="authError" class="error-message" style="display: none;"></div>
+
+                <div id="loginForm" class="auth-form active">
+                    <h2>Log In</h2>
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" placeholder="••••••••" required>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="handleLogin()">Log In</button>
+                    <p class="auth-toggle">Don't have an account? <a onclick="toggleAuthForm(event)">Sign Up</a></p>
+                </div>
+
+                <div id="signupForm" class="auth-form">
+                    <h2>Create Account</h2>
+                    <div class="form-group">
+                        <label for="signupName">Full Name</label>
+                        <input type="text" id="signupName" placeholder="Your Name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" placeholder="your@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPassword">Password</label>
+                        <input type="password" id="signupPassword" placeholder="At least 6 characters" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupConfirm">Confirm Password</label>
+                        <input type="password" id="signupConfirm" placeholder="Confirm password" required>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="handleSignup()">Create Account</button>
+                    <p class="auth-toggle">Already have an account? <a onclick="toggleAuthForm(event)">Log In</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App (Hidden until logged in) -->
+        <div id="appScreen" style="display: none;">
+            <div class="header">
+                <div class="header-content">
+                    <h1>💰 Canadian Savings Tracker</h1>
+                    <p>Track your RRSP, FHSA, TFSA, DPSP & Spending</p>
+                </div>
+                <div class="user-menu">
+                    <span id="userDisplay">Welcome!</span>
+                    <button class="btn btn-secondary" onclick="handleLogout()">Log Out</button>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab(event, 'savings')">Savings</button>
+                <button class="tab-button" onclick="switchTab(event, 'spending')">Spending</button>
+                <button class="tab-button" onclick="switchTab(event, 'dashboard')">Dashboard</button>
+            </div>
+
+            <!-- Savings Tab -->
+            <div id="savings" class="tab-content active">
+                <div class="info-box">
+                    <strong>📌 Canada's Registered Accounts:</strong><br>
+                    • <strong>RRSP:</strong> Tax-deductible, tax-sheltered growth, taxed on withdrawal<br>
+                    • <strong>FHSA:</strong> Tax-deductible for first-time buyers, tax-free withdrawal for home purchase<br>
+                    • <strong>TFSA:</strong> No tax deduction, but tax-free growth and withdrawals<br>
+                    • <strong>DPSP:</strong> Employer-matched Deferred Profit Sharing Plan
+                </div>
+
+                <form onsubmit="addSavings(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="savingsType">Account Type</label>
+                            <select id="savingsType" required>
+                                <option value="">Select Account</option>
+                                <option value="RRSP">RRSP - Registered Retirement Savings Plan</option>
+                                <option value="FHSA">FHSA - First Home Savings Account</option>
+                                <option value="TFSA">TFSA - Tax-Free Savings Account</option>
+                                <option value="DPSP">DPSP - Deferred Profit Sharing Plan</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="savingsAmount">Amount ($)</label>
+                            <input type="number" id="savingsAmount" placeholder="0.00" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="savingsDate">Date</label>
+                            <input type="date" id="savingsDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="savingsDescription">Description (Optional)</label>
+                            <input type="text" id="savingsDescription" placeholder="e.g., Quarterly contribution">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Savings Contribution</button>
+                </form>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>RRSP Balance</h3>
+                        <div class="amount" id="rrspTotal">$0.00</div>
+                        <div class="yearly-total" id="rrspYear">2025: $0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>FHSA Balance</h3>
+                        <div class="amount" id="fhsaTotal">$0.00</div>
+                        <div class="yearly-total" id="fhsaYear">2025: $0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>TFSA Balance</h3>
+                        <div class="amount" id="tfsaTotal">$0.00</div>
+                        <div class="yearly-total" id="tfsaYear">2025: $0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>DPSP Balance</h3>
+                        <div class="amount" id="dpspTotal">$0.00</div>
+                        <div class="yearly-total" id="dpspYear">2025: $0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Total Savings</h3>
+                        <div class="amount" id="grandTotal">$0.00</div>
+                        <div class="yearly-total" id="grandYear">2025: $0.00</div>
+                    </div>
+                </div>
+
+                <div class="transactions-list">
+                    <h3>Savings Contributions History</h3>
+                    <div id="savingsList"></div>
+                </div>
+            </div>
+
+            <!-- Spending Tab -->
+            <div id="spending" class="tab-content">
+                <form onsubmit="addExpense(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expenseCategory">Category</label>
+                            <select id="expenseCategory" required>
+                                <option value="">Select Category</option>
+                                <option value="Groceries">Groceries</option>
+                                <option value="Utilities">Utilities & Bills</option>
+                                <option value="Rent">Rent/Mortgage</option>
+                                <option value="Transportation">Transportation</option>
+                                <option value="Dining">Dining & Restaurants</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Healthcare">Healthcare & Medical</option>
+                                <option value="Shopping">Shopping & Clothing</option>
+                                <option value="Insurance">Insurance</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="expenseAmount">Amount ($)</label>
+                            <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expenseDate">Date</label>
+                            <input type="date" id="expenseDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="expenseDescription">Description (Optional)</label>
+                            <input type="text" id="expenseDescription" placeholder="e.g., Weekly grocery shopping">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Expense</button>
+                </form>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>Total Spending</h3>
+                        <div class="amount" id="totalSpending">$0.00</div>
+                        <div class="yearly-total" id="spendingYear">2025: $0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Monthly Average</h3>
+                        <div class="amount" id="monthlyAvg">$0.00</div>
+                        <div class="yearly-total">This month</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Largest Category</h3>
+                        <div class="amount" id="largestCat">-</div>
+                        <div class="yearly-total" id="largestAmount">$0.00</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Spending by Category</div>
+                    <div id="categoryChart"></div>
+                </div>
+
+                <div class="transactions-list">
+                    <h3>Recent Expenses</h3>
+                    <div id="expensesList"></div>
+                </div>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content">
+                <h2 style="margin-bottom: 20px; color: #333;">Financial Summary</h2>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>Total Savings</h3>
+                        <div class="amount" id="dashSavings">$0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Total Spending</h3>
+                        <div class="amount" id="dashSpending">$0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Net Position</h3>
+                        <div class="amount" id="dashNet">$0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Savings Rate</h3>
+                        <div class="amount" id="dashRate">0%</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Savings Distribution</div>
+                    <div class="category-bar">
+                        <div class="category-name">
+                            <span>RRSP</span>
+                            <span id="rrspPct">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="rrspBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="category-bar">
+                        <div class="category-name">
+                            <span>FHSA</span>
+                            <span id="fhsaPct">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="fhsaBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="category-bar">
+                        <div class="category-name">
+                            <span>TFSA</span>
+                            <span id="tfsaPct">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="tfsaBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="category-bar">
+                        <div class="category-name">
+                            <span>DPSP</span>
+                            <span id="dpspPct">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="dpspBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box" style="margin-top: 30px;">
+                    <strong>💡 Spending Insights:</strong><br>
+                    To spend less and save more efficiently:<br>
+                    • Track every expense to identify spending patterns<br>
+                    • Set category budgets and monitor monthly progress<br>
+                    • Look for recurring expenses you can eliminate<br>
+                    • Automate savings contributions to prioritize them<br>
+                    • Review the Dashboard monthly to see your savings rate
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8HdHMQwRY0mCYon5ZZKs5MdeBmBkt0x8",
+            authDomain: "canadian-savings-tracker.firebaseapp.com",
+            databaseURL: "https://canadian-savings-tracker-default-rtdb.firebaseio.com",
+            projectId: "canadian-savings-tracker",
+            storageBucket: "canadian-savings-tracker.firebasestorage.app",
+            messagingSenderId: "227919215891",
+            appId: "1:227919215891:web:5af520326238d4cf7e2ee6"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUser = null;
+        let savingsData = [];
+        let expensesData = [];
+
+        // Monitor auth state
+        auth.onAuthStateChanged(function(user) {
+            if (user) {
+                currentUser = user;
+                loadUserData();
+                showAppScreen();
+            } else {
+                currentUser = null;
+                showAuthScreen();
+            }
+        });
+
+        function showAuthScreen() {
+            document.getElementById('authScreen').style.display = 'flex';
+            document.getElementById('appScreen').style.display = 'none';
+        }
+
+        function showAppScreen() {
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('appScreen').style.display = 'block';
+            document.getElementById('userDisplay').textContent = `Welcome, ${currentUser.displayName || currentUser.email}!`;
+            initializeDates();
+            updateAllDisplays();
+        }
+
+        function toggleAuthForm(e) {
+            e.preventDefault();
+            document.getElementById('loginForm').classList.toggle('active');
+            document.getElementById('signupForm').classList.toggle('active');
+            document.getElementById('authError').style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function handleSignup() {
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const confirm = document.getElementById('signupConfirm').value;
+
+            if (!name || !email || !password || !confirm) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            if (password !== confirm) {
+                showError('Passwords do not match');
+                return;
+            }
+
+            if (password.length < 6) {
+                showError('Password must be at least 6 characters');
+                return;
+            }
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    return userCredential.user.updateProfile({
+                        displayName: name
+                    }).then(() => {
+                        // Save initial user data to database
+                        db.ref('users/' + userCredential.user.uid).set({
+                            name: name,
+                            email: email,
+                            savings: [],
+                            expenses: []
+                        });
+                        document.getElementById('signupForm').reset();
+                    });
+                })
+                .catch((error) => {
+                    showError(error.message);
+                });
+        }
+
+        function handleLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showError('Please enter email and password');
+                return;
+            }
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => {
+                    document.getElementById('loginForm').reset();
+                })
+                .catch((error) => {
+                    showError(error.message);
+                });
+        }
+
+        function handleLogout() {
+            if (confirm('Are you sure you want to log out?')) {
+                auth.signOut().then(() => {
+                    savingsData = [];
+                    expensesData = [];
+                    document.getElementById('loginForm').reset();
+                    document.getElementById('signupForm').reset();
+                });
+            }
+        }
+
+        function loadUserData() {
+            db.ref('users/' + currentUser.uid).once('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    savingsData = data.savings || [];
+                    expensesData = data.expenses || [];
+                    updateAllDisplays();
+                }
+            });
+        }
+
+        function saveUserData() {
+            if (currentUser) {
+                db.ref('users/' + currentUser.uid).update({
+                    savings: savingsData,
+                    expenses: expensesData
+                });
+            }
+        }
+
+        function initializeDates() {
+            const today = new Date().toISOString().split('T')[0];
+            if (document.getElementById('savingsDate')) {
+                document.getElementById('savingsDate').value = today;
+            }
+            if (document.getElementById('expenseDate')) {
+                document.getElementById('expenseDate').value = today;
+            }
+        }
+
+        function switchTab(e, tabName) {
+            e.preventDefault();
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(tabName).classList.add('active');
+            e.target.classList.add('active');
+            updateAllDisplays();
+        }
+
+        function addSavings(event) {
+            event.preventDefault();
+
+            const saving = {
+                type: document.getElementById('savingsType').value,
+                amount: parseFloat(document.getElementById('savingsAmount').value),
+                date: document.getElementById('savingsDate').value,
+                description: document.getElementById('savingsDescription').value,
+                id: Date.now()
+            };
+
+            savingsData.push(saving);
+            saveUserData();
+
+            event.target.reset();
+            initializeDates();
+            updateAllDisplays();
+        }
+
+        function addExpense(event) {
+            event.preventDefault();
+
+            const expense = {
+                category: document.getElementById('expenseCategory').value,
+                amount: parseFloat(document.getElementById('expenseAmount').value),
+                date: document.getElementById('expenseDate').value,
+                description: document.getElementById('expenseDescription').value,
+                id: Date.now()
+            };
+
+            expensesData.push(expense);
+            saveUserData();
+
+            event.target.reset();
+            initializeDates();
+            updateAllDisplays();
+        }
+
+        function deleteSaving(id) {
+            savingsData = savingsData.filter(s => s.id !== id);
+            saveUserData();
+            updateAllDisplays();
+        }
+
+        function deleteExpense(id) {
+            expensesData = expensesData.filter(e => e.id !== id);
+            saveUserData();
+            updateAllDisplays();
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-CA', {
+                style: 'currency',
+                currency: 'CAD',
+                minimumFractionDigits: 2
+            }).format(value);
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-CA', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function updateSavingsSummary() {
+            const currentYear = new Date().getFullYear().toString();
+            
+            const rrsp = savingsData.filter(s => s.type === 'RRSP').reduce((sum, s) => sum + s.amount, 0);
+            const fhsa = savingsData.filter(s => s.type === 'FHSA').reduce((sum, s) => sum + s.amount, 0);
+            const tfsa = savingsData.filter(s => s.type === 'TFSA').reduce((sum, s) => sum + s.amount, 0);
+            const dpsp = savingsData.filter(s => s.type === 'DPSP').reduce((sum, s) => sum + s.amount, 0);
+            
+            const rrspYear = savingsData.filter(s => s.type === 'RRSP' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+            const fhsaYear = savingsData.filter(s => s.type === 'FHSA' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+            const tfsaYear = savingsData.filter(s => s.type === 'TFSA' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+            const dpspYear = savingsData.filter(s => s.type === 'DPSP' && s.date.startsWith(currentYear)).reduce((sum, s) => sum + s.amount, 0);
+
+            const total = rrsp + fhsa + tfsa + dpsp;
+            const totalYear = rrspYear + fhsaYear + tfsaYear + dpspYear;
+
+            document.getElementById('rrspTotal').textContent = formatCurrency(rrsp);
+            document.getElementById('fhsaTotal').textContent = formatCurrency(fhsa);
+            document.getElementById('tfsaTotal').textContent = formatCurrency(tfsa);
+            document.getElementById('dpspTotal').textContent = formatCurrency(dpsp);
+            document.getElementById('grandTotal').textContent = formatCurrency(total);
+
+            document.getElementById('rrspYear').textContent = `2025: ${formatCurrency(rrspYear)}`;
+            document.getElementById('fhsaYear').textContent = `2025: ${formatCurrency(fhsaYear)}`;
+            document.getElementById('tfsaYear').textContent = `2025: ${formatCurrency(tfsaYear)}`;
+            document.getElementById('dpspYear').textContent = `2025: ${formatCurrency(dpspYear)}`;
+            document.getElementById('grandYear').textContent = `2025: ${formatCurrency(totalYear)}`;
+
+            const sortedSavings = [...savingsData].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const savingsList = document.getElementById('savingsList');
+            
+            if (sortedSavings.length === 0) {
+                savingsList.innerHTML = '<div class="empty-state"><p>No savings contributions yet. Add your first contribution above!</p></div>';
+            } else {
+                savingsList.innerHTML = sortedSavings.map(s => `
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <h4>${s.type}</h4>
+                            <p>${formatDate(s.date)}${s.description ? ' • ' + s.description : ''}</p>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div class="transaction-amount">+${formatCurrency(s.amount)}</div>
+                            <button type="button" class="delete-btn" onclick="deleteSaving(${s.id})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            return { rrsp, fhsa, tfsa, dpsp, total, rrspYear, fhsaYear, tfsaYear, dpspYear, totalYear };
+        }
+
+        function updateSpendingSummary() {
+            const currentYear = new Date().getFullYear().toString();
+            const currentMonth = new Date().toISOString().substring(0, 7);
+
+            const total = expensesData.reduce((sum, e) => sum + e.amount, 0);
+            const totalYear = expensesData.filter(e => e.date.startsWith(currentYear)).reduce((sum, e) => sum + e.amount, 0);
+            const monthlyTotal = expensesData.filter(e => e.date.startsWith(currentMonth)).reduce((sum, e) => sum + e.amount, 0);
+            
+            const monthDate = new Date(currentMonth + '-01');
+            const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+            const daysElapsed = new Date().getDate();
+            const monthlyAvg = (monthlyTotal / daysElapsed) * daysInMonth;
+
+            document.getElementById('totalSpending').textContent = formatCurrency(total);
+            document.getElementById('spendingYear').textContent = `2025: ${formatCurrency(totalYear)}`;
+            document.getElementById('monthlyAvg').textContent = formatCurrency(monthlyAvg);
+
+            const categoryTotals = {};
+            expensesData.forEach(e => {
+                categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
+            });
+
+            const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+            
+            if (sortedCategories.length > 0) {
+                const [largestName, largestAmount] = sortedCategories[0];
+                document.getElementById('largestCat').textContent = largestName;
+                document.getElementById('largestAmount').textContent = formatCurrency(largestAmount);
+            }
+
+            const chartHtml = sortedCategories.map(([category, amount]) => {
+                const percentage = total > 0 ? ((amount / total) * 100).toFixed(1) : 0;
+                return `
+                    <div class="category-bar">
+                        <div class="category-name">
+                            <span>${category}</span>
+                            <span>${percentage}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('categoryChart').innerHTML = chartHtml || '<div class="empty-state"><p>No spending data yet.</p></div>';
+
+            const sortedExpenses = [...expensesData].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const expensesList = document.getElementById('expensesList');
+            
+            if (sortedExpenses.length === 0) {
+                expensesList.innerHTML = '<div class="empty-state"><p>No expenses tracked yet. Start tracking your spending!</p></div>';
+            } else {
+                expensesList.innerHTML = sortedExpenses.map(e => `
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <h4>${e.category}</h4>
+                            <p>${formatDate(e.date)}${e.description ? ' • ' + e.description : ''}</p>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div class="transaction-amount expense">-${formatCurrency(e.amount)}</div>
+                            <button type="button" class="delete-btn" onclick="deleteExpense(${e.id})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            return { total, totalYear, monthlyAvg };
+        }
+
+        function updateDashboard() {
+            const savingsInfo = updateSavingsSummary();
+            const spendingInfo = updateSpendingSummary();
+
+            const netPosition = savingsInfo.totalYear - spendingInfo.totalYear;
+            const savingsRate = (savingsInfo.totalYear + spendingInfo.totalYear) > 0 
+                ? ((savingsInfo.totalYear / (savingsInfo.totalYear + spendingInfo.totalYear)) * 100).toFixed(1)
+                : 0;
+
+            document.getElementById('dashSavings').textContent = formatCurrency(savingsInfo.totalYear);
+            document.getElementById('dashSpending').textContent = formatCurrency(spendingInfo.totalYear);
+            document.getElementById('dashNet').textContent = formatCurrency(netPosition);
+            document.getElementById('dashRate').textContent = savingsRate + '%';
+
+            const total = savingsInfo.total;
+            if (total > 0) {
+                const rrspPct = ((savingsInfo.rrsp / total) * 100).toFixed(1);
+                const fhsaPct = ((savingsInfo.fhsa / total) * 100).toFixed(1);
+                const tfsaPct = ((savingsInfo.tfsa / total) * 100).toFixed(1);
+                const dpspPct = ((savingsInfo.dpsp / total) * 100).toFixed(1);
+
+                document.getElementById('rrspBar').style.width = rrspPct + '%';
+                document.getElementById('fhsaBar').style.width = fhsaPct + '%';
+                document.getElementById('tfsaBar').style.width = tfsaPct + '%';
+                document.getElementById('dpspBar').style.width = dpspPct + '%';
+
+                document.getElementById('rrspPct').textContent = rrspPct + '%';
+                document.getElementById('fhsaPct').textContent = fhsaPct + '%';
+                document.getElementById('tfsaPct').textContent = tfsaPct + '%';
+                document.getElementById('dpspPct').textContent = dpspPct + '%';
+            }
+        }
+
+        function updateAllDisplays() {
+            updateDashboard();
+        }
+    </script>
+</body>
+</html>
