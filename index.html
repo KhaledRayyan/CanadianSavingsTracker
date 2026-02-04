@@ -762,15 +762,19 @@
         let currentUser = null;
         let savingsData = [];
         let expensesData = [];
+        let dataListener = null;
 
         // Monitor auth state
         auth.onAuthStateChanged(function(user) {
             if (user) {
                 currentUser = user;
-                loadUserData();
+                setupRealtimeListener();
                 showAppScreen();
             } else {
                 currentUser = null;
+                if (dataListener) {
+                    dataListener();
+                }
                 showAuthScreen();
             }
         });
@@ -835,9 +839,11 @@
                             name: name,
                             email: email,
                             savings: [],
-                            expenses: []
+                            expenses: [],
+                            createdAt: new Date().toISOString()
+                        }).then(() => {
+                            document.getElementById('signupForm').reset();
                         });
-                        document.getElementById('signupForm').reset();
                     });
                 })
                 .catch((error) => {
@@ -874,22 +880,44 @@
             }
         }
 
-        function loadUserData() {
-            db.ref('users/' + currentUser.uid).once('value', (snapshot) => {
+        function setupRealtimeListener() {
+            // Remove old listener if exists
+            if (dataListener) {
+                dataListener();
+            }
+
+            // Set up real-time listener
+            dataListener = db.ref('users/' + currentUser.uid).on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     savingsData = data.savings || [];
                     expensesData = data.expenses || [];
                     updateAllDisplays();
+                } else {
+                    // First time user - initialize empty data
+                    savingsData = [];
+                    expensesData = [];
+                    saveUserData();
                 }
+            }, (error) => {
+                console.error('Error loading data:', error);
             });
+        }
+
+        function loadUserData() {
+            // This is kept for backwards compatibility but setupRealtimeListener is now primary
+            setupRealtimeListener();
         }
 
         function saveUserData() {
             if (currentUser) {
                 db.ref('users/' + currentUser.uid).update({
                     savings: savingsData,
-                    expenses: expensesData
+                    expenses: expensesData,
+                    lastUpdated: new Date().toISOString()
+                }).catch((error) => {
+                    console.error('Error saving data:', error);
+                    alert('Warning: Could not save to database. Check your connection.');
                 });
             }
         }
